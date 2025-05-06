@@ -9,16 +9,18 @@
     * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',sans-serif; }
     body {
       background: linear-gradient(135deg,#1a237e,#0d47a1);
-      min-height:100vh; display:flex; justify-content:center; align-items:center;
+      min-height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:center;
       padding:20px;
+      color: #fff;
     }
+
     .auth-container {
       background: #fff; border-radius:15px; overflow:hidden;
       box-shadow: 0 10px 30px rgba(0,0,0,0.2);
       width: 350px; max-width: 100%;
+      color: #333;
     }
 
-    /* ========== Заголовки и табы ========== */
     .tab-header {
       display: flex;
       background: linear-gradient(90deg,#2196F3,#42A5F5);
@@ -32,15 +34,36 @@
       font-weight: bold;
     }
 
-    /* ========== Формы ========== */
     .form-wrapper {
       position: relative; width:200%; display:flex;
       transition: transform .5s ease;
     }
     form {
-      width:50%; padding:30px;
+      width:50%;
+      padding:30px;
       display:flex; flex-direction:column; gap:15px;
+      position: relative;
+      padding-bottom: 3.5em; /* резерв под ошибки */
     }
+
+    /* Флэши — внутри формы, абсолютно */
+    .flashes {
+      position: absolute;
+      bottom: 1em;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      list-style: none;
+      color: #d32f2f;
+      font-size: .9em;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+    .flashes li {
+      margin-bottom: .25em;
+    }
+
     input {
       padding:12px; border:2px solid #e3f2fd; border-radius:8px;
       font-size:1em; transition:border-color .3s;
@@ -65,45 +88,71 @@
 <body>
 
   <div class="auth-container">
-    <!-- Заголовок-табы -->
     <div class="tab-header">
       <div id="tab-login" class="active">Вход</div>
       <div id="tab-register">Регистрация</div>
     </div>
-    <!-- Обёртка для двух форм -->
+
     <div class="form-wrapper" id="forms">
+
       <!-- Форма входа -->
-      <form id="login-form">
-        <input type="email"   placeholder="Email"      required>
-        <input type="password" placeholder="Пароль"     required>
+      <form id="login-form"
+            action="{{ url_for('events.login_page') }}"
+            method="post">
+        <input type="email"   name="email"    placeholder="Email"   required>
+        <input type="password" name="password" placeholder="Пароль" required>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <ul class="flashes">
+              {% for msg in messages %}
+                <li>{{ msg }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        {% endwith %}
+
         <button class="btn" type="submit">Войти</button>
         <div class="form-footer">
           Нет аккаунта? <a href="#" id="to-register">Зарегистрироваться</a>
         </div>
       </form>
+
       <!-- Форма регистрации -->
-      <form id="register-form">
-        <input type="text"    placeholder="Имя пользователя" required>
-        <input type="email"   placeholder="Email"             required>
-        <input type="password" placeholder="Пароль"           required>
-        <input type="password" placeholder="Подтвердите пароль" required>
+      <form id="register-form"
+            action="{{ url_for('events.register') }}"
+            method="post">
+        <input type="text"     name="login"     placeholder="Имя пользователя" required>
+        <input type="email"    name="email"     placeholder="Email"             required>
+        <input type="password" name="password"  placeholder="Пароль"           required>
+        <input type="password" name="password2" placeholder="Подтвердите пароль" required>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <ul class="flashes">
+              {% for msg in messages %}
+                <li>{{ msg }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        {% endwith %}
+
         <button class="btn" type="submit">Зарегистрироваться</button>
         <div class="form-footer">
           Уже есть аккаунт? <a href="#" id="to-login">Войти</a>
         </div>
       </form>
+
     </div>
   </div>
 
   <script>
-    // Элементы
     const tabLogin    = document.getElementById('tab-login');
     const tabRegister = document.getElementById('tab-register');
     const forms       = document.getElementById('forms');
     const toRegister  = document.getElementById('to-register');
     const toLogin     = document.getElementById('to-login');
 
-    // Функции переключения
     function showLogin() {
       forms.style.transform = 'translateX(0)';
       tabLogin.classList.add('active');
@@ -115,11 +164,11 @@
       tabLogin.classList.remove('active');
     }
 
-    // Обработчики кликов
     tabLogin.addEventListener('click', showLogin);
     tabRegister.addEventListener('click', showRegister);
     toRegister.addEventListener('click', e => { e.preventDefault(); showRegister(); });
     toLogin.addEventListener('click',    e => { e.preventDefault(); showLogin(); });
   </script>
+
 </body>
 </html>
