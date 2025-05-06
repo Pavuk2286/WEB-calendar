@@ -106,8 +106,11 @@ def get_events():
 @login_required
 def create_event():
     data = request.get_json()
+    # парсим даты и время первого события
     start = datetime.fromisoformat(data['start'])
     end   = datetime.fromisoformat(data['end']) if data.get('end') else None
+
+    # создаём основное событие
     e = Event(
         user_id     = current_user.id,
         title       = data['title'],
@@ -117,6 +120,31 @@ def create_event():
         frequency   = data.get('frequency', 'none')
     )
     db.session.add(e)
+
+    # если месячная периодичность — создаём копии до конца года
+    if e.frequency == 'monthly':
+        day   = start.day
+        year  = start.year
+        month = start.month
+        duration = (end - start) if end else None
+
+        for m in range(month + 1, 13):
+            try:
+                new_start = start.replace(year=year, month=m, day=day)
+            except ValueError:
+                continue  # пропускаем месяцы без нужного дня
+
+            new_end = new_start + duration if duration else None
+            copy = Event(
+                user_id     = current_user.id,
+                title       = e.title,
+                description = e.description,
+                start_time  = new_start,
+                end_time    = new_end,
+                frequency   = 'none'
+            )
+            db.session.add(copy)
+
     db.session.commit()
     return jsonify({'status': 'ok', 'id': e.id}), 201
 
