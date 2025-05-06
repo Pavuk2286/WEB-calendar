@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>WEB‑календарь</title>
+  <title>WEB-календарь</title>
   <style>
     /* ========== Сброс и базовые стили ========== */
     * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',sans-serif; }
@@ -71,7 +71,7 @@
       bottom:6px; right:6px;
     }
 
-    /* FAB‑кнопка «Сегодня» */
+    /* FAB-кнопка «Сегодня» */
     #today-btn {
       position: absolute;
       top:-55px;
@@ -151,11 +151,11 @@
       padding:12px; border:none; border-radius:8px;
       font-size:1em; cursor:pointer; transition:opacity .2s;
     }
-    .event-button.create { background:#2196F3; color:white; }
-    .event-button.delete { background:#f44336; color:white; }
-    .event-button.move   { background:#4caf50; color:white; }
-    .event-button.close  { background:#9e9e9e; color:white; }
-    .event-button:hover { opacity:.9; }
+    .event-button.create  { background:#2196F3; color:white; }
+    .event-button.delete  { background:#f44336; color:white; }
+    .event-button.move    { background:#4caf50; color:white; }
+    .event-button.close   { background:#9e9e9e; color:white; }
+    .event-button:hover   { opacity:.9; }
 
     @media(max-width:768px){
       .calendar,.auth-nav,.event-panel { width:95%; max-width:95%; }
@@ -200,7 +200,8 @@
     </div>
     <div class="events-list" id="events-list"></div>
     <div style="text-align:right; margin-top:10px;">
-      <button id="add-event" class="event-button create">Добавить событие</button>
+      <button id="add-event"   class="event-button create">Добавить событие</button>
+      <button id="close-view"  class="event-button close">Закрыть</button>
     </div>
   </div>
 
@@ -223,7 +224,7 @@
       <div class="event-controls">
         <button type="submit" class="event-button create">Сохранить</button>
         <button type="button" class="event-button delete" id="delete-btn">Удалить</button>
-        <button type="button" class="event-button close" id="close-edit">Закрыть</button>
+        <button type="button" class="event-button close"  id="close-edit">Закрыть</button>
       </div>
     </form>
   </div>

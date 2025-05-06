@@ -1,4 +1,3 @@
-// Путь: web_calendar/static/js/calendar.js
 document.addEventListener('DOMContentLoaded', () => {
   // ===========================
   // Вспомогательные функции
@@ -28,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const deleteBtn      = document.getElementById('delete-btn');
   const closeEdit      = document.getElementById('close-edit');
   const todayBtn       = document.getElementById('today-btn');
+  const closeViewBtn   = document.getElementById('close-view');  // ← новая кнопка
 
   // ===========================
   // Переменные состояния
@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
       gridEl.appendChild(div);
     });
 
-    // Заполнить пустые дни предыдущего месяца
+    // Пустые дни предыдущего месяца
     const firstDow   = (new Date(y, m, 1).getDay() || 7);
     const daysInPrev = new Date(y, m, 0).getDate();
     for (let i = firstDow - 1; i > 0; i--) {
@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
       gridEl.appendChild(btn);
     }
 
-    // Заполнить дни следующего месяца
+    // Дни следующего месяца
     const total = firstDow - 1 + daysInMonth;
     const rem   = (7 - total % 7) % 7;
     for (let i = 1; i <= rem; i++) {
@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
       gridEl.appendChild(btn);
     }
 
-    // После построения сетки загружаем события и обновляем кнопку «Сегодня»
+    // Загрузка событий и обновление кнопки «Сегодня»
     fetchAndProcessEvents();
     updateTodayButton();
   }
@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function fetchAndProcessEvents() {
     const y = currentDate.getFullYear(), m = currentDate.getMonth() + 1;
     allEvents = await fetch(`/api/events?year=${y}&month=${m}`)
-                   .then(r => r.json());
+      .then(r => r.json());
 
     occEvents = [];
     const daysInMonth = new Date(y, currentDate.getMonth()+1, 0).getDate();
@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Удаляем старые точки и ставим новые
+    // Ставим точки на днях
     document.querySelectorAll('.calendar-day .dot').forEach(el => el.remove());
     occEvents.forEach(e => {
       const btn = gridEl.querySelector(`.calendar-day[data-date="${e.date}"]`);
@@ -155,14 +155,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // 3. Обработка клика по дню
   // ===========================
   function onDayClick(dateStr) {
-    // Подсветить выбранный день
     document.querySelectorAll('.calendar-day').forEach(b => b.classList.remove('active'));
     const btn = gridEl.querySelector(`.calendar-day[data-date="${dateStr}"]`);
     if (!btn) return;
     btn.classList.add('active');
 
     activeDate = dateStr;
-    // Показать панель просмотра, скрыть редактирование
     editPanel.style.display = 'none';
     viewPanel.style.display = 'flex';
     selectedDateEl.textContent =
@@ -188,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const d = parseLocalDate(e.date);
         return d >= start && d <= end;
       });
-    } else { // month
+    } else {
       list = occEvents.filter(e => e.date.startsWith(activeDate.slice(0,7)));
     }
 
@@ -238,6 +236,13 @@ document.addEventListener('DOMContentLoaded', () => {
     form.reset();
     form.dataset.id = '';
     deleteBtn.style.display = 'none';
+  });
+
+  // Новая логика закрытия панели просмотра
+  closeViewBtn.addEventListener('click', () => {
+    viewPanel.style.display = 'none';
+    document.querySelectorAll('.calendar-day.active')
+            .forEach(b => b.classList.remove('active'));
   });
 
   closeEdit.addEventListener('click', () => {
