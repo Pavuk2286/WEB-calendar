@@ -4,23 +4,26 @@ from flask_login import LoginManager
 
 db = SQLAlchemy()
 login_manager = LoginManager()
-login_manager.login_view = 'login_page'    # куда перенаправлять неавторизованных
+login_manager.login_view = 'events.login_page'  # указываем полное имя
 
 def create_app():
-    app = Flask(__name__)
-
-    # конфигурация
+    app = Flask(
+        __name__,
+        static_folder='static',
+        template_folder='templates'
+    )
     app.config['SECRET_KEY'] = 'your-secret-key'
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:1234@localhost:5432/users'
+    app.config['SQLALCHEMY_DATABASE_URI'] = (
+        'postgresql://postgres:forprojects@localhost:5432/kapec'
+    )
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    # инициализация расширений
     db.init_app(app)
     login_manager.init_app(app)
 
-    # регистрируем маршруты (импорт здесь, чтобы app уже существовал)
     with app.app_context():
-        from web_calendar import routes   # подключит все @app.route
-        db.create_all()         # создаст таблицы
+        from web_calendar.routes import bp as events_bp
+        app.register_blueprint(events_bp)
+        db.create_all()
 
     return app

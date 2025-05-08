@@ -5,12 +5,17 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>WEB-календарь</title>
   <style>
-    /* Сброс и базовые стили */
+    /* ========== Сброс и базовые стили ========== */
     * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',sans-serif; }
     body {
       background: linear-gradient(135deg,#1a237e,#0d47a1);
-      min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:20px;
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      padding:20px;
     }
+
     /* Навигация */
     .auth-nav {
       width:70%; max-width:800px; margin-bottom:30px;
@@ -25,6 +30,7 @@
 
     /* Календарь */
     .calendar {
+      position: relative; overflow: visible; /* для абсолютной кнопки */
       background:rgba(255,255,255,.95); border-radius:15px;
       box-shadow:0 10px 30px rgba(0,0,0,.2); padding:25px;
       width:70%; max-width:800px;
@@ -40,6 +46,8 @@
       cursor:pointer; padding:8px 15px; border-radius:5px;
       transition:background .3s;
     }
+    .nav-button:hover { background:rgba(255,255,255,.2); }
+
     .calendar-grid {
       display:grid; grid-template-columns:repeat(7,1fr); gap:8px;
     }
@@ -51,12 +59,39 @@
       padding:20px; text-align:center; border-radius:10px;
       background:#e3f2fd; color:#1976D2; font-size:1.2em;
       border:none; cursor:pointer; transition:all .2s;
+      position: relative;
     }
-    .calendar-day:hover, .calendar-day.active {
+    .calendar-day.inactive { opacity:0.3; cursor:default; }
+    .calendar-day:hover:not(.inactive), .calendar-day.active {
       background:#bbdefb; transform:scale(1.05);
     }
+    .calendar-day .dot {
+      width:6px; height:6px; border-radius:50%;
+      background:#f44336; position:absolute;
+      bottom:6px; right:6px;
+    }
 
-    /* Панель событий */
+    /* FAB-кнопка «Сегодня» */
+    #today-btn {
+      position: absolute;
+      top:-55px;
+      left: 0px;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background-color: #2196F3;
+      color: #fff;
+      font-size: 1.2em;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      display: none;       /* скрыта, пока текущий месяц */
+      align-items: center;
+      justify-content: center;
+      display: flex;
+    }
+
+    /* Панель просмотра событий */
     .event-panel {
       width:70%; max-width:800px; margin-top:20px;
       background:white; border-radius:15px; padding:25px;
@@ -67,8 +102,6 @@
       color:#1a237e; font-weight:bold; font-size:1.2em;
       margin-bottom:15px; text-align:center;
     }
-
-    /* Вкладки вида */
     .view-controls {
       display:flex; gap:10px; margin-bottom:15px;
     }
@@ -80,8 +113,6 @@
     .view-button.active, .view-button:hover {
       background:#2196F3; color:white;
     }
-
-    /* Список событий */
     .events-list {
       max-height:200px; overflow-y:auto; margin-bottom:20px;
     }
@@ -89,7 +120,7 @@
       padding:8px; border-bottom:1px solid #eee; font-size:.95em;
     }
 
-    /* Форма создания/редактирования */
+    /* Панель создания/редактирования */
     .event-form {
       display:flex; flex-direction:column; gap:15px;
     }
@@ -106,12 +137,12 @@
     }
     .time-separator { text-align:center; font-size:1.2em; color:#1976D2; }
 
-
     .frequency-button {
       background:#e3f2fd; color:#1976D2; padding:12px;
       border:none; border-radius:8px; cursor:pointer;
       display:flex; justify-content:space-between; align-items:center;
     }
+
     .event-controls {
       margin-top:20px; display:grid; gap:10px;
       grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
@@ -120,11 +151,11 @@
       padding:12px; border:none; border-radius:8px;
       font-size:1em; cursor:pointer; transition:opacity .2s;
     }
-    .event-button.create { background:#2196F3; color:white; }
-    .event-button.delete { background:#f44336; color:white; }
-    .event-button.move   { background:#4caf50; color:white; }
-    .event-button.close  { background:#9e9e9e; color:white; }
-    .event-button:hover { opacity:.9; }
+    .event-button.create  { background:#2196F3; color:white; }
+    .event-button.delete  { background:#f44336; color:white; }
+    .event-button.move    { background:#4caf50; color:white; }
+    .event-button.close   { background:#9e9e9e; color:white; }
+    .event-button:hover   { opacity:.9; }
 
     @media(max-width:768px){
       .calendar,.auth-nav,.event-panel { width:95%; max-width:95%; }
@@ -141,195 +172,63 @@
 
   <!-- Навигация -->
   <nav class="auth-nav">
-    <button class="auth-button">Войти</button>
-    <button class="auth-button">Регистрация</button>
+    <form action="{{ url_for('events.logout') }}" method="get">
+      <button type="submit" class="auth-button">Выйти из аккаунта</button>
+    </form>
   </nav>
 
   <!-- Календарь -->
   <div class="calendar">
     <header class="calendar-header">
-      <button class="nav-button">&lt;</button>
-      <h2>Сентябрь 2023</h2>
-      <button class="nav-button">&gt;</button>
+      <button class="nav-button" id="prev-month">&lt;</button>
+      <h2 id="month-year"></h2>
+      <button class="nav-button" id="next-month">&gt;</button>
     </header>
-    <div class="calendar-grid">
-      <div class="day-header">Пн</div><div class="day-header">Вт</div>
-      <div class="day-header">Ср</div><div class="day-header">Чт</div>
-      <div class="day-header">Пт</div><div class="day-header">Сб</div>
-      <div class="day-header">Вс</div>
-      <!-- Пример дней -->
-      <button class="calendar-day inactive">28</button>
-      <button class="calendar-day inactive">29</button>
-      <button class="calendar-day inactive">30</button>
-      <button class="calendar-day">1</button>
-      <button class="calendar-day">2</button>
-      <button class="calendar-day">3</button>
-      <button class="calendar-day">4</button>
-      <!-- ... остальные дни ... -->
-    </div>
+    <div class="calendar-grid" id="calendar-grid"></div>
+
+    <!-- Кнопка «Сегодня» -->
+    <button id="today-btn" title="Вернуться к текущему месяцу"></button>
   </div>
 
-  <!-- Панель событий -->
-  <div class="event-panel">
-    <div class="selected-date">Выбранная дата: --</div>
-
+  <!-- Панель просмотра событий -->
+  <div class="event-panel" id="view-panel" style="display:none;">
+    <div class="selected-date" id="selected-date">Выбранная дата: --</div>
     <div class="view-controls">
       <button data-view="day"   class="view-button active">День</button>
       <button data-view="week"  class="view-button">Неделя</button>
       <button data-view="month" class="view-button">Месяц</button>
     </div>
-
-    <div class="events-list">
-      <!-- Здесь будут перетаскиваемые .event-item -->
+    <div class="events-list" id="events-list"></div>
+    <div style="text-align:right; margin-top:10px;">
+      <button id="add-event"   class="event-button create">Добавить событие</button>
+      <button id="close-view"  class="event-button close">Закрыть</button>
     </div>
+  </div>
 
-    <form class="event-form">
-      <input type="text" class="event-input" placeholder="Название события" required>
+  <!-- Панель редактирования -->
+  <div class="event-panel" id="edit-panel" style="display:none;">
+    <form class="event-form" id="event-form">
+      <input type="text"     class="event-input" name="title" placeholder="Название события" required>
       <div class="time-container">
-        <input type="time" class="time-input" value="09:00" required>
+        <input type="time" class="time-input" name="start_time" required>
         <div class="time-separator">-</div>
-        <input type="time" class="time-input" value="10:00">
+        <input type="time" class="time-input" name="end_time">
       </div>
-      <textarea class="event-input event-textarea" placeholder="Описание события"></textarea>
-      <button type="button" class="frequency-button">
-        <span>Периодичность</span><span>▼</span>
-      </button>
+      <textarea class="event-input event-textarea" name="description" placeholder="Описание события"></textarea>
+      <select name="frequency" id="frequency-select">
+        <option value="none">Одноразовое</option>
+        <option value="daily">Ежедневно</option>
+        <option value="weekly">Еженедельно</option>
+        <option value="monthly">Ежемесячно</option>
+      </select>
       <div class="event-controls">
-        <button type="submit" class="event-button create">Создать</button>
-        <button type="button" class="event-button delete">Удалить</button>
-        <button type="button" class="event-button move">Переместить</button>
-        <button type="button" class="event-button close">Закрыть</button>
+        <button type="submit" class="event-button create">Сохранить</button>
+        <button type="button" class="event-button delete" id="delete-btn">Удалить</button>
+        <button type="button" class="event-button close"  id="close-edit">Закрыть</button>
       </div>
     </form>
   </div>
 
-  <script>
-    // Пример массива событий
-    const events = [
-      { date:'2023-09-03', title:'Встреча A', time:'09:00-10:00' },
-      { date:'2023-09-03', title:'Обед с Б.', time:'12:00-13:00' },
-      { date:'2023-09-06', title:'Семинар C', time:'15:00-16:30' },
-      // … добавьте свои
-    ];
-
-    // Парсинг строки 'YYYY-MM-DD' в Date
-    function parseDate(s) {
-      const [y,m,d] = s.split('-').map(Number);
-      return new Date(y, m-1, d);
-    }
-
-
-    // Рендер событий по view и дате
-    function renderEvents(view, dateStr) {
-      const container = document.querySelector('.events-list');
-      container.innerHTML = '';
-      const sel = parseDate(dateStr);
-      let filtered = [];
-
-      if (view==='day') {
-        filtered = events.filter(e => e.date===dateStr);
-      } else if (view==='week') {
-        const dow = sel.getDay()||7; // 1–7
-        const first = new Date(sel);
-        first.setDate(sel.getDate() - dow + 1);
-        const last = new Date(first);
-        last.setDate(first.getDate() + 6);
-        filtered = events.filter(e => {
-          const d = parseDate(e.date);
-          return d >= first && d <= last;
-        });
-      } else { // month
-        filtered = events.filter(e => {
-          const d = parseDate(e.date);
-          return d.getMonth()===sel.getMonth() && d.getFullYear()===sel.getFullYear();
-        });
-      }
-
-      if (!filtered.length) {
-        container.innerHTML = '<div class="event-item">Нет событий</div>';
-        return;
-      }
-      filtered.forEach(e => {
-        const div = document.createElement('div');
-        div.className = 'event-item';
-        div.draggable = true;
-        div.dataset.date  = e.date;
-        div.dataset.index = events.indexOf(e);
-        if (view==='day') {
-          div.textContent = `${e.time} — ${e.title}`;
-        } else if (view==='week') {
-          div.textContent = `${e.date} ${e.time} — ${e.title}`;
-        } else {
-          div.textContent = `${e.date} — ${e.title}`;
-        }
-        container.appendChild(div);
-      });
-    }
-
-    // Текущий вид
-    let currentView = 'day';
-    document.querySelectorAll('.view-button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.view-button').forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-        currentView = btn.dataset.view;
-        const selDay = document.querySelector('.calendar-day.active');
-        if (selDay) {
-          const dd = selDay.textContent.padStart(2,'0');
-          renderEvents(currentView, `2023-09-${dd}`);
-        }
-      });
-    });
-
-    // Открытие панели и рендер выбранного дня
-    document.querySelectorAll('.calendar-day').forEach(day => {
-      day.addEventListener('click', function() {
-        document.querySelectorAll('.calendar-day').forEach(d=>d.classList.remove('active'));
-        this.classList.add('active');
-        document.querySelector('.event-panel').style.display='flex';
-        document.querySelector('.selected-date').textContent =
-          `Выбранная дата: ${this.textContent} Сентябрь 2023`;
-        const dd = this.textContent.padStart(2,'0');
-        renderEvents(currentView, `2023-09-${dd}`);
-      });
-      // Разрешаем дроп на днях
-      day.addEventListener('dragover', ev=>ev.preventDefault());
-      day.addEventListener('drop', onDayDrop);
-    });
-
-    // Drag start для событий
-    document.querySelector('.events-list').addEventListener('dragstart', ev => {
-      const item = ev.target.closest('.event-item');
-      if (!item) return;
-      ev.dataTransfer.setData('text/plain', JSON.stringify({
-        index: +item.dataset.index
-      }));
-    });
-
-    // Обработчик drop на дне календаря
-    function onDayDrop(ev) {
-      ev.preventDefault();
-      const { index } = JSON.parse(ev.dataTransfer.getData('text/plain'));
-      const dayBtn = ev.currentTarget;
-      const dd = dayBtn.textContent.padStart(2,'0');
-      const newDate = `2023-09-${dd}`;
-      // Обновляем дату события
-      events[index].date = newDate;
-      // Перерисовываем панель
-      renderEvents(currentView, newDate);
-    }
-
-    // Закрыть панель
-    document.querySelector('.event-button.close').addEventListener('click', () => {
-      document.querySelector('.event-panel').style.display='none';
-      document.querySelectorAll('.calendar-day').forEach(d=>d.classList.remove('active'));
-    });
-
-
-    // Заглушка периодичности
-    document.querySelector('.frequency-button').addEventListener('click', () => {
-      alert('Выбор периодичности');
-    });
-  </script>
+  <script src="{{ url_for('static', filename='js/calendar.js') }}"></script>
 </body>
 </html>

@@ -1,86 +1,192 @@
-from flask import render_template, redirect, url_for, request, flash
-from flask_login import login_user, login_required, logout_user, current_user
+from flask import (
+    render_template, redirect, url_for,
+    request, flash, jsonify, Blueprint
+)
+from flask_login import (
+    login_user, login_required,
+    logout_user, current_user
+)
 from werkzeug.security import check_password_hash, generate_password_hash
-
 from web_calendar import db
-from web_calendar import login_manager   # нужен, чтобы достучаться до current_app?
-from web_calendar import create_app      # не требуется
-from web_calendar.models import User
-from flask import current_app as app     # берём экземпляр из контекста
+from web_calendar.models import User, Event
+from datetime import datetime, timedelta
 
-@app.route("/")
+bp = Blueprint('events', __name__)
+
+# ===== Авторизация =====
+
+@bp.route('/')
 def initial_page():
-    return redirect(url_for('login_page'))
+    return redirect(url_for('events.login_page'))
 
-@app.route("/calendar")
+@bp.route('/login', methods=['GET', 'POST'])
+def login_page():
+    if current_user.is_authenticated:
+        return redirect(url_for('events.calendar_page'))
+    if request.method == 'POST':
+        email    = request.form.get('email')
+        password = request.form.get('password')
+        if not email or not password:
+            flash('Поля почты и пароля должны быть заполнены')
+            return render_template('login.html')
+        user = User.query.filter_by(email=email).first()
+        if user and check_password_hash(user.password_hash, password):
+            login_user(user)
+            nxt = request.args.get('next')
+            return redirect(nxt or url_for('events.calendar_page'))
+        flash('Неверная почта или пароль')
+    return render_template('login.html')
+
+@bp.route('/register', methods=['POST'])
+def register():
+    login_name = request.form.get('login')
+    email      = request.form.get('email')
+    password   = request.form.get('password')
+    password2  = request.form.get('password2')
+    if not all([login_name, email, password, password2]):
+        flash('Все поля должны быть заполнены')
+        return redirect(url_for('events.login_page') + '#register')
+    if User.query.filter_by(email=email).first():
+        flash('Пользователь с таким email уже существует')
+        return redirect(url_for('events.login_page') + '#register')
+    if password != password2:
+        flash('Пароли не совпадают')
+        return redirect(url_for('events.login_page') + '#register')
+    new_user = User(
+        login         = login_name,
+        email         = email,
+        password_hash = generate_password_hash(password)
+    )
+    db.session.add(new_user)
+    db.session.commit()
+    login_user(new_user)
+    return redirect(url_for('events.calendar_page'))
+
+@bp.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('events.login_page'))
+
+@bp.errorhandler(401)
+def unauthorized(e):
+    return redirect(
+        url_for('events.login_page') + '?next=' + request.path
+    )
+
+# ===== Календарь =====
+
+@bp.route('/calendar')
 @login_required
 def calendar_page():
     return render_template('calendar_template.html')
 
-@app.route("/login", methods=['GET', 'POST'])
-def login_page():
-    if current_user.is_authenticated:
-        return redirect(url_for('calendar_page'))
 
-    if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
+# ===== API Событий =====
 
-        if not email or not password:
-            flash("Поля почты и пароля должны быть заполнены")
-            return render_template('login.html')
-
-        user = User.query.filter_by(email=email).first()
-        if user and check_password_hash(user.password_hash, password):
-            login_user(user)
-            next_page = request.args.get('next')
-            return redirect(next_page or url_for('calendar_page'))
-        else:
-            flash("Неверная почта или пароль")
-
-    return render_template('login.html')
-
-
-@app.route("/register", methods=['POST'])
-def register():
-    login_name = request.form.get('login')
-    email = request.form.get('email')
-    password = request.form.get('password')
-    password2 = request.form.get('password2')
-
-    # проверяем заполнение полей
-    if not login_name or not email or not password or not password2:
-        flash("Все поля должны быть заполнены")
-        return redirect(url_for('login_page') + '#register')
-
-    # проверяем, нет ли уже такого email
-    if User.query.filter_by(email=email).first():
-        flash("Пользователь с таким email уже существует")
-        return redirect(url_for('login_page') + '#register')
-
-    if password != password2:
-        flash("Пароли не совпадают")
-        return redirect(url_for('login_page') + '#register')
-
-    # создаём пользователя
-    new_user = User(login=login_name, email=email,
-                    password_hash=generate_password_hash(password))
-    db.session.add(new_user)
-    db.session.commit()
-
-    # сразу логиним
-    login_user(new_user)
-    return redirect(url_for('calendar_page'))
-
-
-@app.route("/logout")
+@bp.route('/api/events', methods=['GET'])
 @login_required
-def logout():
-    logout_user()
-    return redirect(url_for('login_page'))
+def get_events():
+    year  = request.args.get('year',  type=int)
+    month = request.args.get('month', type=int)
+    q = Event.query.filter_by(user_id=current_user.id)
+    if year and month:
+        start = datetime(year, month, 1)
+        end   = (start + timedelta(days=32)).replace(day=1)
+        q     = q.filter(Event.start_time >= start,
+                         Event.start_time <  end)
+    data = [{
+        'id': e.id,
+        'date': e.start_time.strftime('%Y-%m-%d'),
+        'time': e.start_time.strftime('%H:%M') +
+                (e.end_time and '-' + e.end_time.strftime('%H:%M') or ''),
+        'title': e.title,
+        'description': e.description,
+        'frequency': e.frequency
+    } for e in q.all()]
+    return jsonify(data)
 
 
-# Преобразуем 401 в редирект на /login
-@app.errorhandler(401)
-def unauthorized(e):
-    return redirect(url_for('login_page') + '?next=' + request.path)
+@bp.route('/api/events', methods=['POST'])
+@login_required
+def create_event():
+    data = request.get_json()
+    start = datetime.fromisoformat(data['start'])
+    end   = datetime.fromisoformat(data['end']) if data.get('end') else None
+    freq  = data.get('frequency', 'none')
+
+    # создаём основное событие (оригинал)
+    e = Event(
+        user_id     = current_user.id,
+        title       = data['title'],
+        description = data.get('description'),
+        start_time  = start,
+        end_time    = end,
+        frequency   = freq
+    )
+    db.session.add(e)
+    db.session.flush()  # чтобы e.id стало доступно без коммита
+
+    # если месячная периодичность — создаём копии до конца года
+    if freq == 'monthly':
+        day      = start.day
+        year     = start.year
+        month0   = start.month
+        duration = (end - start) if end else None
+
+        for m in range(month0 + 1, 13):
+            try:
+                new_start = start.replace(year=year, month=m, day=day)
+            except ValueError:
+                continue
+            new_end = new_start + duration if duration else None
+            copy = Event(
+                user_id     = current_user.id,
+                title       = e.title,
+                description = e.description,
+                start_time  = new_start,
+                end_time    = new_end,
+                frequency   = 'none',
+                parent_id   = e.id
+            )
+            db.session.add(copy)
+
+    db.session.commit()
+    return jsonify({'status': 'ok', 'id': e.id}), 201
+
+
+@bp.route('/api/events/<int:event_id>', methods=['PUT'])
+@login_required
+def update_event(event_id):
+    e       = Event.query.filter_by(id=event_id, user_id=current_user.id).first_or_404()
+    data    = request.get_json()
+    old_freq = e.frequency
+
+    # обновляем поля
+    if 'start' in data:
+        e.start_time = datetime.fromisoformat(data['start'])
+    if 'end' in data:
+        e.end_time   = (datetime.fromisoformat(data['end']) if data['end'] else None)
+    if 'frequency' in data:
+        e.frequency  = data['frequency']
+    if 'title' in data:
+        e.title      = data['title']
+    if 'description' in data:
+        e.description= data['description']
+
+    # если это оригинал с monthly→не-monthly — удаляем все копии
+    if e.parent_id is None and old_freq == 'monthly' and e.frequency != 'monthly':
+        Event.query.filter_by(parent_id=e.id).delete()
+
+    db.session.commit()
+    return jsonify({'status': 'ok'})
+
+
+@bp.route('/api/events/<int:event_id>', methods=['DELETE'])
+@login_required
+def delete_event(event_id):
+    e = Event.query.filter_by(id=event_id, user_id=current_user.id).first_or_404()
+    # благодаря cascade дочерние удалятся автоматически
+    db.session.delete(e)
+    db.session.commit()
+    return jsonify({'status': 'deleted'})
