@@ -187,7 +187,9 @@
     <div class="calendar-grid" id="calendar-grid"></div>
 
     <!-- Кнопка «Сегодня» -->
-    <button id="today-btn" title="Вернуться к текущему месяцу"></button>
+  <button id="today-btn" title="Вернуться к текущему месяцу">
+    <span id="today-number"></span>
+  </button>
   </div>
 
   <!-- Панель просмотра событий -->
@@ -221,6 +223,16 @@
         <option value="weekly">Еженедельно</option>
         <option value="monthly">Ежемесячно</option>
       </select>
+
+      <label for="color-select">Цвет события:</label>
+        <select name="color" id="color-select" class="event-input">
+        <option value="#f48fb1">Розовый</option>
+        <option value="#ce93d8">Лиловый</option>
+        <option value="#a5d6a7">Зелёный</option>
+        <option value="#ffcc80">Персиковый</option>
+        <option value="#b0bec5">Серый</option>
+        </select>
+
       <div class="event-controls">
         <button type="submit" class="event-button create">Сохранить</button>
         <button type="button" class="event-button delete" id="delete-btn">Удалить</button>

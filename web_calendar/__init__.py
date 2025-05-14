@@ -4,7 +4,7 @@ from flask_login import LoginManager
 
 db = SQLAlchemy()
 login_manager = LoginManager()
-login_manager.login_view = 'events.login_page'  # указываем полное имя
+login_manager.login_view = 'events.login_page'
 
 def create_app():
     app = Flask(
@@ -14,7 +14,7 @@ def create_app():
     )
     app.config['SECRET_KEY'] = 'your-secret-key'
     app.config['SQLALCHEMY_DATABASE_URI'] = (
-        'postgresql://postgres:forprojects@localhost:5432/kapec'
+        'postgresql://postgres:forprojects@localhost:5432/pizdec'
     )
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
