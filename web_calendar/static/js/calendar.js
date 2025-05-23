@@ -181,6 +181,47 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Генерация описания AI
+async function fetchAIDescription(title) {
+  const res = await fetch('/api/generate_description', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({title})
+  });
+  if (!res.ok) throw new Error('AI service error');
+  const data = await res.json();
+  return data.description;
+}
+
+// Кнопка в форме
+const generateBtn = document.createElement('button');
+generateBtn.type = 'button';
+generateBtn.textContent = 'Сгенерировать описание';
+generateBtn.className = 'event-button';
+document.querySelector('.event-controls').prepend(generateBtn);
+
+generateBtn.addEventListener('click', async () => {
+  const title = form.title.value.trim();
+  if (!title) return Swal.fire('Введите заголовок');
+
+  Swal.fire({title: 'Генерация...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+  try {
+    const aiDesc = await fetchAIDescription(title);
+    Swal.close();
+    const { value } = await Swal.fire({
+      title: 'Описание',
+      input: 'textarea',
+      inputValue: aiDesc,
+      showCancelButton: true,
+      confirmButtonText: 'Принять'
+    });
+    if (value !== undefined) form.description.value = value;
+  } catch (e) {
+    Swal.fire('Ошибка AI: ' + e.message);
+  }
+});
+
   // Переключение вида
   viewBtns.forEach(btn => {
     btn.addEventListener('click', () => {

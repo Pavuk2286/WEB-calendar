@@ -1,11 +1,15 @@
+import os
+
 from flask import (
     render_template, redirect, url_for,
-    request, flash, jsonify, Blueprint
+    request, flash, jsonify, Blueprint, current_app
 )
 from flask_login import (
     login_user, login_required,
     logout_user, current_user
 )
+from gigachat import GigaChat
+from gigachat.exceptions import GigaChatException
 from werkzeug.security import check_password_hash, generate_password_hash
 from web_calendar import db
 from web_calendar.models import User, Event
@@ -231,6 +235,35 @@ def delete_all(event_id):
     db.session.commit()
     return jsonify({'status': 'deleted_all'}), 200
 
+@bp.route('/api/generate_description', methods=['POST'])
+@login_required
+def generate_description():
+    data = request.get_json() or {}
+    title = data.get('title', '').strip()
+    if not title:
+        return jsonify({'error': 'Отсутствует заголовок'}), 400
+
+    api_key = os.getenv('GIGACHAT_API_TOKEN')
+    if not api_key:
+        current_app.logger.error('GIGACHAT_API_TOKEN is not set')
+        return jsonify({'error': 'Internal server error'}), 500
+
+    try:
+        # Инициализируем клиент: SSL-валидация отключена для упрощения
+        with GigaChat(
+            credentials=api_key,
+            verify_ssl_certs=False            # отключаем проверку сертификатов
+        ) as client:
+            # Отправляем запрос и получаем ответ
+            response = client.chat(
+                f"Сгенерируй краткое, информативное описание события: {title}"
+            )
+            description = response.choices[0].message.content
+    except GigaChatException as e:
+        current_app.logger.error(f'GigaChat API error: {e}')
+        return jsonify({'error': 'AI service unavailable'}), 502
+
+    return jsonify({'description': description}), 200
 
 def _generate_recurrences(orig, start, end, color, freq):
     """

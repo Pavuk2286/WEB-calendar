@@ -14,7 +14,7 @@ def create_app():
     )
     app.config['SECRET_KEY'] = 'your-secret-key'
     app.config['SQLALCHEMY_DATABASE_URI'] = (
-        'postgresql://postgres:forprojects@localhost:5432/pizdec'
+        'postgresql://postgres:forprojects@localhost:5432/sos13'
     )
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
